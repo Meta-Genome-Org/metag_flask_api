@@ -1,0 +1,12 @@
+
+ [
+    {"keyword": "tensile-modulus", "display_name": "tensile modulus"},
+    {"keyword": "compressive-modulus", "display_name": "compressive modulus"},
+    {"keyword": "tensile-poissons-ratio", "display_name": "tensile Poissons ratio"},
+    {"keyword": "compressive-poissons", "display_name": "compressive Poissons ratio"},
+    {"keyword": "couple-constant", "display_name": "couple constant"},
+    {"keyword": "yield-strength", "display_name": "yield strength"},
+    {"keyword": "ultimate-yield-strength", "display_name": "ultimate yield strength"},
+    {"keyword": "bulk-density", "display_name": "bulk density"}
+  ]
+  
