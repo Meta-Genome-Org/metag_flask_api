@@ -1,9 +1,10 @@
-import cdcs
+import os
 from cdcs import CDCS
 import pandas as pd
 import xml.dom.minidom as md
-
-curator = CDCS('https://portal.meta-genome.org/', username='')
+import xml.etree.ElementTree as ET
+import config
+curator = CDCS('https://portal.meta-genome.org/', username=config.FRONTPAGE_USER, password=config.FRONTPAGE_PASS)
 template="mecha-metagenome-schema31"        # Make this to not have to be hard-coded
 query_dict = "{\"map.metamaterial-material-info\": {\"$exists\": true}}"
 my_query= curator.query(template=template, mongoquery=query_dict)
@@ -69,6 +70,7 @@ class xml_control:
                                 "orthotropic-choice" : "-ortho",
                                 "component-test-data": "component"}
             
+            #print(type_elems[-1])
             sensitivity_sufix = avail_sensitivity[type_elems[-1].tag]
             # getting single point values and units
             

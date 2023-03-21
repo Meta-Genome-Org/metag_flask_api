@@ -2,3 +2,6 @@
 /designing_json
 /testing.txt
 /venv
+/config.py
+/old_venv
+.env
