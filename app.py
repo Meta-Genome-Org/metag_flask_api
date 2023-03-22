@@ -1,6 +1,7 @@
 from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
 import json
+import config
 from cdcs import CDCS
 import xml_parse_api
 
@@ -18,7 +19,7 @@ def return_avail_data():
 @app.route('/get_vals/<keyword>', methods=['GET'])
 def get_data(keyword):
     
-    curator = CDCS('https://portal.meta-genome.org/', username="")
+    curator = CDCS('https://portal.meta-genome.org/', username=config.FRONTPAGE_USER, password=config.FRONTPAGE_PASS)
     template = "mecha-metagenome-schema31"        # Make this to not have to be hard-coded
     query_dict1 = "{\"map.metamaterial-material-info\": {\"$exists\": true}}"
     query_dict ="{\"$or\": [{\"$or\": [{\"map.metamaterial-material-info.bulk-density\": {\"$gt\": 0.0}}, {\"map.metamaterial-material-info.bulk-density.#text\": {\"$gt\": 0.0}}]}, {\"$or\": [{\"map.base-material-info.bulk-density\": {\"$gt\": 0.0}}, {\"map.base-material-info.bulk-density.#text\": {\"$gt\": 0.0}}]}]}"
@@ -44,7 +45,7 @@ def get_data(keyword):
 @app.route('/get_pub/<pub_id>', methods=['GET'])
 def get_publication(pub_id):
 
-    curator = CDCS('https://portal.meta-genome.org/', username="")
+    curator = CDCS('https://portal.meta-genome.org/', username=config.FRONTPAGE_USER, password=config.FRONTPAGE_PASS)
     template = "mecha-metagenome-schema31"        # Make this to not have to be hard-coded
     query_dict = "{\"map.\": {\"$exists\": true}}"
     my_query = curator.query(template=template)
