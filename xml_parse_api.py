@@ -1,14 +1,13 @@
-import os
 from cdcs import CDCS
 import pandas as pd
 import xml.dom.minidom as md
 import xml.etree.ElementTree as ET
-import config
-curator = CDCS('https://portal.meta-genome.org/', username=config.FRONTPAGE_USER, password=config.FRONTPAGE_PASS)
-template="mecha-metagenome-schema31"        # Make this to not have to be hard-coded
-query_dict = "{\"map.metamaterial-material-info\": {\"$exists\": true}}"
-my_query= curator.query(template=template, mongoquery=query_dict)
-xml_content = my_query.iloc[0].xml_content
+
+#curator = CDCS('https://portal.meta-genome.org/', username='')
+#template="mecha-metagenome-schema31"        # Make this to not have to be hard-coded
+#query_dict = "{\"map.metamaterial-material-info\": {\"$exists\": true}}"
+#my_query= curator.query(template=template, mongoquery=query_dict)
+#xml_content = my_query.iloc[0].xml_content
 
 
 class xml_control:
