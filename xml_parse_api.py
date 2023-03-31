@@ -39,7 +39,6 @@ class xml_control:
         measure_units = {}
         values = {}
         measure_vals_units_list = []
-        #print(sub_type)
 
         if sub_type == "component":
             values = {"values" : {keyword: None}}
@@ -60,14 +59,12 @@ class xml_control:
             words = sensitivity.split('-')
             sensitivity_type = '-'.join(words[:-1])
 
-            #sensitivity = ['-'.join(word.split('-')[:-1]) for word in sensitivity]
 
             avail_sensitivity = {"isotropic-choice":"-iso",
                                 "transversely-isotropic-choice": "-trans",
                                 "orthotropic-choice" : "-ortho",
                                 "component-test-data": "component"}
             
-            #print(type_elems[-1])
             sensitivity_sufix = avail_sensitivity[type_elems[-1].tag]
             # getting single point values and units
             
@@ -77,12 +74,10 @@ class xml_control:
                 
                 bulk_density = root.findall(f"./{submission_type}/bulk-density")
                 bulk_density_units = root.findall(f"./{submission_type}/bulk-density-unit")
-                #print(bulk_density)
+
                 values = {"values" : {"bulk-density": bulk_density[0].text}}
                 
-                #print(values)
                 measure_units = {"units": bulk_density_units[0].text}
-                #print(measure_units)
                 measure_vals_units_list = [values, measure_units]
                 measure_val_units["bulk-density"] = measure_vals_units_list
                 measure_val_units["sensitivity"] = sensitivity_type
@@ -94,7 +89,6 @@ class xml_control:
                 choice_elems = []
                 for child in type_elems[-1]:
                     choice_elems.append(child.tag)
-                    #print(child.tag.split('-').pop(-1))
 
                 # all properties in directional sensitivity
                 choice_elems_clean = ['-'.join(word.split('-')[:-1]) for word in choice_elems]
@@ -103,7 +97,6 @@ class xml_control:
                 identified_data = []
                 
                 for clean_elem in choice_elems_clean:
-                    #print(clean_elem)
                     if clean_elem == data_type:
                         identified_data.append(clean_elem)
 
@@ -138,7 +131,6 @@ class xml_control:
                         measure_val_units[elem] = measure_vals_units_list
                 
                 # getting all single point values into organised dictionary
-                # print(measure_val_units)
                 measure_val_units["sensitivity"] = sensitivity_type
             
                 
