@@ -6,7 +6,7 @@ import xml_parse_api
 import os
 
 PORTAL_URL =  os.environ.get('CDCS_HOSTNAME', "https://portal.meta-genome.org/")  
-METAG_URL = os.environ.get('CORS_ORIGIN', "http://.meta-genome.org/") 
+METAG_URL = os.environ.get('CORS_ORIGIN', "https://meta-genome.org") 
 
 
 app = Flask(__name__)
