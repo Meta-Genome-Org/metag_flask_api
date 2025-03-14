@@ -12,6 +12,13 @@ METAG_URL = os.environ.get('CORS_ORIGIN', "https://meta-genome.org")
 app = Flask(__name__)
 CORS(app, origins=METAG_URL)
 
+
+@app.route('/', methods=['GET'])
+def index():
+    return jsonify({
+        'routes': ['/avail_data', '/get_vals/<keyword>', '/get_pub/<pub_id>']
+    })
+
 @app.route('/avail_data', methods=['GET'])
 def return_avail_data():
     with open('available_data.json', 'r') as f:
