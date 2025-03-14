@@ -13,8 +13,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the current directory contents into the container at /app
 COPY . /app
 
-# Set the environment variable for Flask
-
+# Expose port for gunicorn
+EXPOSE 5000
 
 # Run the command to start Flask
 CMD ["gunicorn", "--bind=0.0.0.0:5000", "app:app"]
