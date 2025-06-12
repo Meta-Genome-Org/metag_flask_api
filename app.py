@@ -5,9 +5,10 @@ from cdcs import CDCS
 import xml_parse_api
 import os
 
-PORTAL_URL =  os.environ.get('CDCS_HOSTNAME', "https://portal.meta-genome.org/")  
+CDCS_HOSTNAME = os.environ.get('CDCS_HOSTNAME', "https://portal.meta-genome.org/")  
 METAG_URL = os.environ.get('CORS_ORIGIN', "https://meta-genome.org") 
-
+FRONTPAGE_USER = os.environ.get('FRONTPAGE_USER', "anonymous")
+FRONTPAGE_PASS = os.environ.get('FRONTPAGE_PASS', "")
 
 app = Flask(__name__)
 CORS(app, origins=METAG_URL)
@@ -29,7 +30,7 @@ def return_avail_data():
 @app.route('/get_vals/<keyword>', methods=['GET'])
 def get_data(keyword):
     
-    curator = CDCS(PORTAL_URL, username='',)
+    curator = CDCS(CDCS_HOSTNAME, username=FRONTPAGE_USER, password=FRONTPAGE_PASS)
     template = "mecha-metagenome-schema31"        # Make this to not have to be hard-coded
     query_dict1 = "{\"map.metamaterial-material-info\": {\"$exists\": true}}"
     query_dict ="{\"$or\": [{\"$or\": [{\"map.metamaterial-material-info.bulk-density\": {\"$gt\": 0.0}}, {\"map.metamaterial-material-info.bulk-density.#text\": {\"$gt\": 0.0}}]}, {\"$or\": [{\"map.base-material-info.bulk-density\": {\"$gt\": 0.0}}, {\"map.base-material-info.bulk-density.#text\": {\"$gt\": 0.0}}]}]}"
@@ -55,7 +56,7 @@ def get_data(keyword):
 @app.route('/get_pub/<pub_id>', methods=['GET'])
 def get_publication(pub_id):
 
-    curator = CDCS(PORTAL_URL, username='',)
+    curator = CDCS(CDCS_HOSTNAME, username=FRONTPAGE_USER, password=FRONTPAGE_PASS)
     template = "mecha-metagenome-schema31"        # Make this to not have to be hard-coded
     query_dict = "{\"map.\": {\"$exists\": true}}"
     query_dict ="{\"$or\": [{\"$or\": [{\"map.metamaterial-material-info.bulk-density\": {\"$gt\": 0.0}}, {\"map.metamaterial-material-info.bulk-density.#text\": {\"$gt\": 0.0}}]}, {\"$or\": [{\"map.base-material-info.bulk-density\": {\"$gt\": 0.0}}, {\"map.base-material-info.bulk-density.#text\": {\"$gt\": 0.0}}]}]}"
