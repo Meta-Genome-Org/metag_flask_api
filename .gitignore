@@ -5,3 +5,5 @@
 /config.py
 /old_venv
 .env
+__pycache__/
+*.pyc
