@@ -37,4 +37,4 @@ traitlets==5.9.0
 urllib3==1.26.15
 waitress==2.1.2
 wcwidth==0.2.6
-Werkzeug==2.2.3
+Werkzeug==3.1.9
