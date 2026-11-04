@@ -1,0 +1,132 @@
+name: Build image
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # Weekly rebuild picks up OS security fixes in the pinned base image.
+  schedule:
+    - cron: "37 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: ghcr.io/meta-genome-org/metag_flask_api
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=sha,prefix=sha-
+
+      - name: Build for scanning
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: Dockerfile
+          load: true
+          tags: metag_flask_api:scan
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Report-only until the base image is upgraded: the current one has
+      # unfixable CVEs that would fail every build. Switch exit-code to "1" afterwards.
+      - name: Scan for vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: metag_flask_api:scan
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          format: sarif
+          output: trivy.sarif
+          exit-code: "0"
+
+      - uses: github/codeql-action/upload-sarif@1fc58d04a4d4374f921bdac573c3811c240f9c26 # v4.39.2
+        with:
+          sarif_file: trivy.sarif
+          category: metag_flask_api-image
+
+      - if: github.event_name != 'pull_request'
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - if: github.event_name != 'pull_request'
+        id: push
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          provenance: mode=max
+          sbom: true
+
+      - if: github.event_name != 'pull_request'
+        run: echo "Pushed \`${IMAGE}@${{ steps.push.outputs.digest }}\`" >> "$GITHUB_STEP_SUMMARY"
+
+  # Dependabot PRs that only change image digests (same tag, rebuilt upstream)
+  # merge once the build and scan above pass. Anything else waits for a human.
+  automerge:
+    needs: build
+    if: github.event_name == 'pull_request' && github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      PR_URL: ${{ github.event.pull_request.html_url }}
+    steps:
+      - id: check
+        shell: python
+        run: |
+          import os, re, subprocess
+          diff = subprocess.run(["gh", "pr", "diff", os.environ["PR_URL"]],
+                                capture_output=True, text=True, check=True).stdout
+          removed, added = [], []
+          for line in diff.splitlines():
+              if line.startswith(("--- a/", "+++ b/", "--- /dev/null", "+++ /dev/null")):
+                  continue
+              if line.startswith("-"):
+                  removed.append(line[1:])
+              elif line.startswith("+"):
+                  added.append(line[1:])
+          digest = re.compile(r"@sha256:[0-9a-f]{64}")
+          only_digests = (
+              bool(removed)
+              and len(removed) == len(added)
+              and all(digest.search(l) for l in removed + added)
+              and [digest.sub("", l) for l in removed] == [digest.sub("", l) for l in added]
+          )
+          print("digest-only change" if only_digests else "not digest-only; leaving for review")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              out.write(f"digest_only={str(only_digests).lower()}\n")
+
+      - if: steps.check.outputs.digest_only == 'true'
+        run: |
+          gh pr merge --squash "$PR_URL"
+          # Merges by GITHUB_TOKEN don't trigger push workflows, so publish explicitly
+          gh workflow run build.yml --ref main

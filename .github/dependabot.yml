@@ -1,0 +1,23 @@
+version: 2
+updates:
+  # Base images. Digest-only PRs auto-merge after CI (see the automerge
+  # job in build.yml); tag changes need review.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: daily
+    labels: [dependencies, docker]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    labels: [dependencies, github-actions]
+
+  # Python requirements: version PRs are for review; security fixes also arrive as PRs.
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels: [dependencies, pip]

@@ -1,5 +1,5 @@
 # Use the official Python image as the parent image
-FROM python:3.9-slim-buster
+FROM python:3.9-slim-buster@sha256:320a7a4250aba4249f458872adecf92eea88dc6abd2d76dc5c0f01cac9b53990
 
 # Set the working directory to /app
 WORKDIR /app
