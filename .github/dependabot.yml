@@ -21,3 +21,12 @@ updates:
       interval: weekly
     open-pull-requests-limit: 5
     labels: [dependencies, pip]
+    # One PR per run for minor/patch updates and one for security fixes, so
+    # they don't conflict over requirements.txt. Majors still come singly.
+    groups:
+      pip-minor-patch:
+        applies-to: version-updates
+        update-types: [minor, patch]
+      pip-security:
+        applies-to: security-updates
+        update-types: [minor, patch]
