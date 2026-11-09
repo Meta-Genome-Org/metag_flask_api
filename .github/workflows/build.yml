@@ -35,6 +35,11 @@ jobs:
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
             type=sha,prefix=sha-
 
+      # Passed to the build so the OS security-update layer is rebuilt at
+      # least daily instead of being served from the build cache.
+      - id: date
+        run: echo "today=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+
       - name: Build for scanning
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
@@ -42,6 +47,8 @@ jobs:
           file: Dockerfile
           load: true
           tags: metag_flask_api:scan
+          build-args: |
+            OS_UPDATES_DATE=${{ steps.date.outputs.today }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -78,6 +85,8 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            OS_UPDATES_DATE=${{ steps.date.outputs.today }}
           cache-from: type=gha
           provenance: mode=max
           sbom: true
