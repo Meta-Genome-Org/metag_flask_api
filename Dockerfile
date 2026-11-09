@@ -1,6 +1,13 @@
 # Use the official Python image as the parent image
 FROM python:3.13-slim-trixie@sha256:e48f59cdba69a3cbd9ed2cf0f348d90d45a8d350d98134cf1070bc106ee9ed90
 
+# Apply Debian security fixes the base image doesn't include yet. CI passes
+# today's date as OS_UPDATES_DATE so this layer is rebuilt at least daily.
+ARG OS_UPDATES_DATE
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y \
+    && rm -rf /var/lib/apt/lists/*
+
 # Set the working directory to /app
 WORKDIR /app
 
