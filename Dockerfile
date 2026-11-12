@@ -24,6 +24,7 @@ COPY . /app
 EXPOSE 5000
 
 # Run the command to start Flask
-CMD ["gunicorn", "--bind=0.0.0.0:5000", "app:app"]
+# gthread workers so the graph's parallel X and Y requests aren't serialised
+CMD ["gunicorn", "--bind=0.0.0.0:5000", "--workers=2", "--threads=4", "app:app"]
 
 
