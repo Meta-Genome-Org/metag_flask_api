@@ -11,22 +11,30 @@ CDCS_HOSTNAME = os.environ.get('CDCS_HOSTNAME', "https://portal.meta-genome.org/
 METAG_URL = os.environ.get('CORS_ORIGIN', "https://meta-genome.org") 
 FRONTPAGE_USER = os.environ.get('FRONTPAGE_USER', "anonymous")
 FRONTPAGE_PASS = os.environ.get('FRONTPAGE_PASS', "")
+FRONTPAGE_TOKEN = os.environ.get('FRONTPAGE_TOKEN', "")
 CACHE_TTL = int(os.environ.get('CACHE_TTL', 300))  # seconds
 
 TEMPLATE = "mecha-metagenome-schema31"        # Make this to not have to be hard-coded
 QUERY = "{\"$or\": [{\"$or\": [{\"map.metamaterial-material-info.bulk-density\": {\"$gt\": 0.0}}, {\"map.metamaterial-material-info.bulk-density.#text\": {\"$gt\": 0.0}}]}, {\"$or\": [{\"map.base-material-info.bulk-density\": {\"$gt\": 0.0}}, {\"map.base-material-info.bulk-density.#text\": {\"$gt\": 0.0}}]}]}"
 
-# Every endpoint runs the same CDCS query. Each pycdcs request uses HTTP Basic
-# auth, which costs ~0.4s of password hashing on the portal, and a query makes
-# 6+ requests, so cache the result rather than re-running it per request.
+# Every endpoint runs the same CDCS query, which makes 6+ requests to the
+# portal, so cache the result rather than re-running it per request.
 _cache = {'records': None, 'fetched': 0.0}
 _cache_lock = threading.Lock()
+
+
+def get_curator():
+    # Prefer a DRF token: Basic auth costs ~0.4s of password hashing on the
+    # portal for every request pycdcs makes, while a token lookup is ~free.
+    if FRONTPAGE_TOKEN:
+        return CDCS(CDCS_HOSTNAME, username='', token=FRONTPAGE_TOKEN)
+    return CDCS(CDCS_HOSTNAME, username=FRONTPAGE_USER, password=FRONTPAGE_PASS)
 
 
 def get_records():
     with _cache_lock:
         if _cache['records'] is None or time.monotonic() - _cache['fetched'] > CACHE_TTL:
-            curator = CDCS(CDCS_HOSTNAME, username=FRONTPAGE_USER, password=FRONTPAGE_PASS)
+            curator = get_curator()
             _cache['records'] = curator.query(template=TEMPLATE, mongoquery=QUERY, progress_bar=False)
             _cache['fetched'] = time.monotonic()
         return _cache['records']
