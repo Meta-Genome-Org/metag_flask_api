@@ -14,8 +14,12 @@ WORKDIR /app
 # 
 COPY requirements.txt . 
 
-# Install any needed packages specified in requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+# Install the requirements, then remove pip in the same layer: it isn't used
+# at runtime, and the old copies of urllib3, msgpack and setuptools bundled
+# inside it (pip/_vendor) are flagged by Trivy.
+RUN pip install --no-cache-dir -r requirements.txt \
+    && pip uninstall -y pip \
+    && rm -rf /root/.cache /tmp/*
 
 # Copy the current directory contents into the container at /app
 COPY . /app
