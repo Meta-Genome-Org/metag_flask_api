@@ -4,11 +4,32 @@ import json
 from cdcs import CDCS
 import xml_parse_api
 import os
+import threading
+import time
 
 CDCS_HOSTNAME = os.environ.get('CDCS_HOSTNAME', "https://portal.meta-genome.org/")  
 METAG_URL = os.environ.get('CORS_ORIGIN', "https://meta-genome.org") 
 FRONTPAGE_USER = os.environ.get('FRONTPAGE_USER', "anonymous")
 FRONTPAGE_PASS = os.environ.get('FRONTPAGE_PASS', "")
+CACHE_TTL = int(os.environ.get('CACHE_TTL', 300))  # seconds
+
+TEMPLATE = "mecha-metagenome-schema31"        # Make this to not have to be hard-coded
+QUERY = "{\"$or\": [{\"$or\": [{\"map.metamaterial-material-info.bulk-density\": {\"$gt\": 0.0}}, {\"map.metamaterial-material-info.bulk-density.#text\": {\"$gt\": 0.0}}]}, {\"$or\": [{\"map.base-material-info.bulk-density\": {\"$gt\": 0.0}}, {\"map.base-material-info.bulk-density.#text\": {\"$gt\": 0.0}}]}]}"
+
+# Every endpoint runs the same CDCS query. Each pycdcs request uses HTTP Basic
+# auth, which costs ~0.4s of password hashing on the portal, and a query makes
+# 6+ requests, so cache the result rather than re-running it per request.
+_cache = {'records': None, 'fetched': 0.0}
+_cache_lock = threading.Lock()
+
+
+def get_records():
+    with _cache_lock:
+        if _cache['records'] is None or time.monotonic() - _cache['fetched'] > CACHE_TTL:
+            curator = CDCS(CDCS_HOSTNAME, username=FRONTPAGE_USER, password=FRONTPAGE_PASS)
+            _cache['records'] = curator.query(template=TEMPLATE, mongoquery=QUERY, progress_bar=False)
+            _cache['fetched'] = time.monotonic()
+        return _cache['records']
 
 app = Flask(__name__)
 CORS(app, origins=METAG_URL)
@@ -30,13 +51,7 @@ def return_avail_data():
 @app.route('/get_vals/<keyword>', methods=['GET'])
 def get_data(keyword):
     
-    curator = CDCS(CDCS_HOSTNAME, username=FRONTPAGE_USER, password=FRONTPAGE_PASS)
-    template = "mecha-metagenome-schema31"        # Make this to not have to be hard-coded
-    query_dict1 = "{\"map.metamaterial-material-info\": {\"$exists\": true}}"
-    query_dict ="{\"$or\": [{\"$or\": [{\"map.metamaterial-material-info.bulk-density\": {\"$gt\": 0.0}}, {\"map.metamaterial-material-info.bulk-density.#text\": {\"$gt\": 0.0}}]}, {\"$or\": [{\"map.base-material-info.bulk-density\": {\"$gt\": 0.0}}, {\"map.base-material-info.bulk-density.#text\": {\"$gt\": 0.0}}]}]}"
-    
-    #query_dict = "{\"map.\": {\"$exists\": true}}"
-    my_query = curator.query(template=template, mongoquery=query_dict)
+    my_query = get_records()
     
     list_data = []
     for i, row in my_query.iterrows():
@@ -56,11 +71,7 @@ def get_data(keyword):
 @app.route('/get_pub/<pub_id>', methods=['GET'])
 def get_publication(pub_id):
 
-    curator = CDCS(CDCS_HOSTNAME, username=FRONTPAGE_USER, password=FRONTPAGE_PASS)
-    template = "mecha-metagenome-schema31"        # Make this to not have to be hard-coded
-    query_dict = "{\"map.\": {\"$exists\": true}}"
-    query_dict ="{\"$or\": [{\"$or\": [{\"map.metamaterial-material-info.bulk-density\": {\"$gt\": 0.0}}, {\"map.metamaterial-material-info.bulk-density.#text\": {\"$gt\": 0.0}}]}, {\"$or\": [{\"map.base-material-info.bulk-density\": {\"$gt\": 0.0}}, {\"map.base-material-info.bulk-density.#text\": {\"$gt\": 0.0}}]}]}"
-    my_query = curator.query(template=template, mongoquery=query_dict)
+    my_query = get_records()
     sub_id = my_query[my_query['id'] == int(pub_id)].iloc[0]
     sub_xml = sub_id.xml_content
     my_parse = xml_parse_api.xml_control(sub_xml)
