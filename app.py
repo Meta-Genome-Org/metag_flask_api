@@ -18,8 +18,11 @@ TEMPLATE = "mecha-metagenome-schema31"        # Make this to not have to be hard
 QUERY = "{\"$or\": [{\"$or\": [{\"map.metamaterial-material-info.bulk-density\": {\"$gt\": 0.0}}, {\"map.metamaterial-material-info.bulk-density.#text\": {\"$gt\": 0.0}}]}, {\"$or\": [{\"map.base-material-info.bulk-density\": {\"$gt\": 0.0}}, {\"map.base-material-info.bulk-density.#text\": {\"$gt\": 0.0}}]}]}"
 
 # Every endpoint runs the same CDCS query, which makes 6+ requests to the
-# portal, so cache the result rather than re-running it per request.
-_cache = {'records': None, 'fetched': 0.0}
+# portal, so cache the result. The first request in each worker fills the
+# cache; after that it's refreshed in the background every CACHE_TTL seconds,
+# and requests are always answered from the cache.
+RETRY_AFTER = 60  # seconds before retrying a failed refresh
+_cache = {'records': None, 'refresh_at': 0.0, 'refreshing': False}
 _cache_lock = threading.Lock()
 
 
@@ -31,16 +34,53 @@ def get_curator():
     return CDCS(CDCS_HOSTNAME, username=FRONTPAGE_USER, password=FRONTPAGE_PASS)
 
 
+def fetch_records():
+    return get_curator().query(template=TEMPLATE, mongoquery=QUERY, progress_bar=False)
+
+
+def refresh_records():
+    try:
+        records = fetch_records()
+    except Exception:
+        # Keep the cached result and try again shortly
+        app.logger.exception("CDCS cache refresh failed")
+        with _cache_lock:
+            _cache['refresh_at'] = time.monotonic() + RETRY_AFTER
+            _cache['refreshing'] = False
+        return
+    with _cache_lock:
+        _cache['records'] = records
+        _cache['refresh_at'] = time.monotonic() + CACHE_TTL
+        _cache['refreshing'] = False
+
+
 def get_records():
     with _cache_lock:
-        if _cache['records'] is None or time.monotonic() - _cache['fetched'] > CACHE_TTL:
-            curator = get_curator()
-            _cache['records'] = curator.query(template=TEMPLATE, mongoquery=QUERY, progress_bar=False)
-            _cache['fetched'] = time.monotonic()
+        if _cache['records'] is None:
+            # Nothing cached yet in this worker: fetch while holding the lock,
+            # so concurrent first requests share one fetch
+            _cache['records'] = fetch_records()
+            _cache['refresh_at'] = time.monotonic() + CACHE_TTL
+        elif time.monotonic() >= _cache['refresh_at'] and not _cache['refreshing']:
+            _cache['refreshing'] = True
+            threading.Thread(target=refresh_records, daemon=True).start()
         return _cache['records']
 
 app = Flask(__name__)
 CORS(app, origins=METAG_URL)
+
+# Let browsers reuse responses for a minute, then use them while revalidating
+# in the background. The ETag lets revalidation return 304 when nothing changed.
+BROWSER_CACHE = "public, max-age=60, stale-while-revalidate=300"
+
+
+@app.after_request
+def add_cache_headers(response):
+    if request.method == 'GET' and response.status_code == 200 and request.endpoint != 'index':
+        response.headers['Cache-Control'] = BROWSER_CACHE
+        response.add_etag()
+        response.make_conditional(request)
+    return response
 
 
 @app.route('/', methods=['GET'])
